@@ -1,0 +1,182 @@
+---
+alwaysApply: true
+---
+
+# Automaton Auditor — Agent Rules
+
+## Project Description
+
+This project is a **Chroma Color Mixing and Inventory SaaS platform** built with **FastAPI**, following a **multi-tenant architecture**. The system allows salons to:
+
+- Track color formulas used on customers
+- Track inventory of color products in grams/mL
+- Calculate cost per service
+- Maintain customer history
+- Support multiple salon tenants
+
+---
+
+## Specifications / SRS
+
+### Project Overview
+
+- Multi-tenant SaaS for salons
+- Users: Stylists, Managers, Salon Owners
+- Tracks inventory by grams/mL (not whole tubes)
+- Maintains detailed audit logs for inventory transactions
+- Formula tracking with cost calculation
+
+### User Stories
+
+#### Salon Owner
+- Manage salon locations
+- Add/manage employees
+- Track inventory levels and costs
+- See products needing restocking
+
+#### Stylist / Employee
+- Log in
+- Select customer
+- Record formula
+- Auto-update inventory
+
+#### Salon Manager
+- Monitor inventory levels
+- Track usage and waste
+- Track service costs
+
+#### SaaS Platform Owner
+- Multi-tenant support
+- Data separation per salon
+- Scalable to thousands of salons
+
+### System Architecture
+
+- **Tenant** → **Location** → **Users** → **Customers**
+- **Product Catalog** → **Tenant Products** → **Inventory Items**
+- **Formulas** → **Formula Items** → **Inventory Transactions**
+- Stack: Python 3.11+, FastAPI, SQLAlchemy, Pydantic, LangChain, LangGraph
+
+### Tables / Entities (Abbreviated)
+
+- tenants (id, name, plan, status, created_at)
+- locations (id, tenant_id, name, address, timezone)
+- users (id, tenant_id, default_location_id, full_name, email, role)
+- customers (id, tenant_id, home_location_id, full_name, phone, email)
+- brands, product_lines, products
+- tenant_products (tenant_id, product_id, custom_name, is_enabled, tracking_unit, default_unit_cost)
+- inventory_items (tenant_id, location_id, tenant_product_id, on_hand_qty, reorder_level_qty)
+- formulas, formula_items, inventory_txns
+
+### Inventory Tracking
+
+- Track in grams or milliliters for precise cost
+- Deduct inventory automatically when formulas are used
+- Audit all transactions in `inventory_txns`
+
+---
+
+## Specs: Where to Look and When
+
+All authoritative specs live in **`SRS documentation/`**. Follow them for requirements, architecture, contracts, and conventions.
+
+| File | What it does | When to check |
+|------|----------------|---------------|
+| **`SRS documentation/index.qmd`** | Complete system requirements specification (SRS). Source of truth for *what* the system must do, entity relationships, table schemas, user stories, and business logic. | Before designing or implementing any feature; when in doubt about a requirement; when defining models, schemas, or API contracts. |
+| **`.cursor/rules/agent.mdc`** | Technical standards, architectural style, tech stack (FastAPI, SQLAlchemy, Pydantic), API patterns, file layout (`src/models/`, `src/schemas/`, `src/crud/`, `src/routers/`), multi-tenant isolation rules. | When choosing technologies, patterns, or file locations; when writing new modules; when ensuring multi-tenant data isolation. |
+| **`src/models/*.py`** | SQLAlchemy ORM models defining database schema, relationships, constraints, and foreign keys. Reference for table structure and entity relationships. | When implementing CRUD operations; when adding new entities; when verifying foreign key relationships and constraints. |
+| **`src/schemas/*.py`** | Pydantic v2 schemas for API request/response validation. Defines `Base`, `Create`, `Update`, and `Read` schemas per entity. | When implementing API endpoints; when validating input/output; when defining API contracts. |
+| **`src/crud/*.py`** | CRUD operations with multi-tenant filtering. All queries must filter by `tenant_id` for data isolation. | When implementing business logic; when adding new operations; when ensuring tenant isolation. |
+| **`src/routers/*.py`** | FastAPI route handlers. RESTful endpoints organized by resource (tenants, users, customers, products, inventory, formulas). | When adding new endpoints; when implementing authentication/authorization; when documenting API behavior. |
+
+---
+
+## Implementation Instructions
+
+### FastAPI Setup
+
+1. **Project Structure**
+
+```
+src/
+  main.py
+  config.py
+  database.py
+  models/
+  schemas/
+  crud/
+  routers/
+  seed/
+  utils/
+.cursor/rules/agent.mdc
+SRS documentation/
+```
+
+2. **main.py**
+- Initialize FastAPI app
+- Include routers: `/tenants`, `/users`, `/inventory`
+- Swagger UI at `/swagger`
+- Auto-create tables (for dev) with SQLAlchemy
+
+3. **Database**
+- SQLAlchemy + SQLite/PostgreSQL
+- Models for all tables described in SRS
+- Relationships and foreign keys per SRS
+
+4. **CRUD**
+- Each entity has a `crud/` module for create/read/update/delete
+- Use Pydantic schemas for input/output validation
+
+5. **Routers**
+- Include routers for tenants, users, inventory, formulas
+- Each router uses dependency injection for DB sessions
+
+6. **Seeding**
+- `seed/seed_data.py` to populate tenants, users, products
+- Seed example: Salon One (Premium), Salon Two (Basic)
+
+7. **Security**
+- JWT or OAuth2 authentication
+- Password hashing in `utils/security.py`
+
+8. **Swagger**
+- Automatically generated by FastAPI
+- `/swagger` endpoint
+
+---
+
+## Workflow / Plan → Code → Review
+
+1. **Plan**
+- Read SRS specs (`SRS documentation/index.qmd`) before coding
+- Confirm which tables, API endpoints, and features are needed
+
+2. **Code**
+- Implement models, schemas, CRUD, routers
+- Stick to FastAPI + SQLAlchemy + Pydantic conventions
+- Write seed scripts for default data
+- Ensure Swagger works
+
+3. **Review**
+- Check against SRS requirements
+- Ensure multi-tenant isolation
+- Ensure inventory calculations match grams/mL tracking
+
+---
+
+## Cursor Automation Rules
+
+- Always apply this prompt for new agent sessions
+- Use the SRS and system design in this prompt to generate:
+  - Models, Schemas
+  - CRUD and Routers
+  - Seeding scripts
+  - Swagger integration
+- Track inventory by tenant, location, and product
+- Track formulas and formula items
+- Track inventory transactions
+- Follow multi-tenant architecture strictly
+- Validate all input with Pydantic
+- Ensure API endpoints are RESTful and documented in Swagger
+
+Full SRS documentation is available in [SRS documentation/index.qmd](mdc:SRS documentation/index.qmd)

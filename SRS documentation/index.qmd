@@ -1,0 +1,759 @@
+
+---
+title: "Chroma SaaS – System Design Documentation"
+format:
+  html:
+    toc: true
+    code-fold: false
+---
+
+# Project Overview
+
+This document describes the architecture for a **Chroma Color Mixing and Inventory SaaS platform**.
+
+The goal of the system is to help hair salons:
+
+- Track **color formulas used on customers**
+- Track **inventory of color products**
+- Calculate **cost per service**
+- Maintain **customer history**
+- Support **multiple salons (multi-tenant SaaS)**
+
+The system allows a salon employee to:
+
+1. Log in
+2. Select a customer
+3. Mix color formulas
+4. Save the formula
+5. Automatically deduct inventory
+6. Track cost of color usage
+
+The design is built so the platform can support **many different salons using the same system**.
+
+---
+
+# User Stories
+
+## Salon Owner
+
+As a **salon owner**, I want to:
+
+- Manage my **salon locations**
+- Add and manage **employees**
+- Track **inventory levels**
+- Track **product usage costs**
+- See which products need **restocking**
+- Maintain a **catalog of products we use**
+
+## Stylist / Employee
+
+As a **stylist**, I want to:
+
+- Log into the system
+- Select a customer
+- Record the **formula used for their hair color**
+- See the **customer's past formulas**
+- Automatically update inventory when color is used
+
+## Salon Manager
+
+As a **manager**, I want to:
+
+- Monitor inventory levels
+- Track product usage
+- Identify waste
+- Track service costs
+
+## SaaS Platform Owner
+
+As the **software provider**, I want:
+
+- Multiple salons using the same platform
+- Data separation between salons
+- Ability to scale to thousands of salons
+
+---
+
+# Industry Workflow
+
+Typical workflow inside a professional salon:
+
+1. Stylist places bowl on digital scale
+2. Adds color products
+3. Records grams used
+4. Applies mixture
+5. Saves formula for future visits
+
+Example:
+
+```text
+Customer: Sarah
+
+30g 7N
+15g 7A
+45ml developer
+```
+
+The system records the formula and deducts inventory.
+
+---
+
+# Inventory Tracking Method
+
+Inventory is tracked in **grams or milliliters** rather than tubes.
+
+Example:
+
+```text
+Product: Redken Shades EQ 09N
+Tube size: 60g
+Inventory: 4 tubes
+
+Total available = 240g
+```
+
+When used:
+
+```text
+Used: 30g
+Remaining: 210g
+```
+
+This allows precise cost calculation.
+
+---
+
+# Why Tracking in Grams / ML Is Better
+
+The system should track inventory in **grams or milliliters**, not just by counting tubes or bottles.
+
+Why this is better:
+
+- Stylists use **partial amounts** from multiple products
+- The app can calculate the **real cost of a service**
+- Inventory becomes more accurate
+- Waste can be tracked better
+- The system works across many brands and sizes
+
+Example:
+
+```text
+20g 7N
+10g 7A
+30ml developer
+```
+
+If the system only tracks whole tubes, it cannot measure this formula correctly.
+
+---
+
+# System Architecture
+
+The system is designed with a **multi-tenant SaaS structure**.
+
+Key components:
+
+- Tenant (Salon Business)
+- Locations (Branches)
+- Users (Employees)
+- Customers
+- Product Catalog
+- Inventory
+- Formulas
+
+---
+
+# Entity Relationship Diagram
+
+This is the **simple relationship view** of the system.
+
+```{mermaid}
+erDiagram
+
+TENANTS ||--o{ LOCATIONS : has
+TENANTS ||--o{ USERS : employs
+TENANTS ||--o{ CUSTOMERS : owns
+
+BRANDS ||--o{ PRODUCT_LINES : contains
+PRODUCT_LINES ||--o{ PRODUCTS : contains
+
+TENANTS ||--o{ TENANT_PRODUCTS : configures
+PRODUCTS ||--o{ TENANT_PRODUCTS : mapped_to
+
+LOCATIONS ||--o{ INVENTORY_ITEMS : stores
+TENANT_PRODUCTS ||--o{ INVENTORY_ITEMS : tracked_as
+
+CUSTOMERS ||--o{ FORMULAS : receives
+USERS ||--o{ FORMULAS : creates
+LOCATIONS ||--o{ FORMULAS : occurs_at
+
+FORMULAS ||--o{ FORMULA_ITEMS : contains
+TENANT_PRODUCTS ||--o{ FORMULA_ITEMS : used_in
+
+INVENTORY_ITEMS ||--o{ INVENTORY_TXNS : logs
+FORMULAS ||--o{ INVENTORY_TXNS : triggers
+USERS ||--o{ INVENTORY_TXNS : performed_by
+```
+
+---
+
+# Detailed ER Diagram With Fields
+
+This is the **detailed field-level ER diagram** you can use when drawing the system in Draw.io.
+
+```{mermaid}
+erDiagram
+  TENANTS ||--o{ LOCATIONS : has
+  TENANTS ||--o{ USERS : employs
+  TENANTS ||--o{ CUSTOMERS : owns
+  BRANDS ||--o{ PRODUCT_LINES : has
+  PRODUCT_LINES ||--o{ PRODUCTS : includes
+  TENANTS ||--o{ TENANT_PRODUCTS : configures
+  PRODUCTS ||--o{ TENANT_PRODUCTS : mapped_to
+  LOCATIONS ||--o{ INVENTORY_ITEMS : stores
+  TENANT_PRODUCTS ||--o{ INVENTORY_ITEMS : tracked_as
+  CUSTOMERS ||--o{ FORMULAS : has
+  USERS ||--o{ FORMULAS : creates
+  LOCATIONS ||--o{ FORMULAS : occurs_at
+  FORMULAS ||--o{ FORMULA_ITEMS : contains
+  TENANT_PRODUCTS ||--o{ FORMULA_ITEMS : used_in
+  INVENTORY_ITEMS ||--o{ INVENTORY_TXNS : logs
+  FORMULAS ||--o{ INVENTORY_TXNS : triggers
+  USERS ||--o{ INVENTORY_TXNS : performed_by
+
+  TENANTS {
+    uuid id PK
+    string name
+    string plan
+    string status
+    datetime created_at
+  }
+
+  LOCATIONS {
+    uuid id PK
+    uuid tenant_id FK
+    string name
+    string address
+    string timezone
+    datetime created_at
+  }
+
+  USERS {
+    uuid id PK
+    uuid tenant_id FK
+    uuid default_location_id FK
+    string full_name
+    string email
+    string password_hash
+    string role
+    boolean is_active
+    datetime last_login_at
+    datetime created_at
+  }
+
+  CUSTOMERS {
+    uuid id PK
+    uuid tenant_id FK
+    uuid home_location_id FK
+    string full_name
+    string phone
+    string email
+    string notes
+    datetime created_at
+  }
+
+  BRANDS {
+    uuid id PK
+    string name
+    string website_url
+    datetime created_at
+  }
+
+  PRODUCT_LINES {
+    uuid id PK
+    uuid brand_id FK
+    string name
+    string category
+    datetime created_at
+  }
+
+  PRODUCTS {
+    uuid id PK
+    uuid product_line_id FK
+    string sku
+    string code
+    string name
+    string tone_family
+    float pack_size_value
+    string pack_size_unit
+    boolean is_active
+    datetime created_at
+  }
+
+  TENANT_PRODUCTS {
+    uuid id PK
+    uuid tenant_id FK
+    uuid product_id FK
+    string custom_name
+    boolean is_enabled
+    string tracking_unit
+    float default_unit_cost
+    string currency
+    datetime created_at
+  }
+
+  INVENTORY_ITEMS {
+    uuid id PK
+    uuid tenant_id FK
+    uuid location_id FK
+    uuid tenant_product_id FK
+    float on_hand_qty
+    float reorder_level_qty
+    datetime updated_at
+    datetime created_at
+  }
+
+  INVENTORY_TXNS {
+    uuid id PK
+    uuid tenant_id FK
+    uuid inventory_item_id FK
+    uuid formula_id FK
+    uuid user_id FK
+    string txn_type
+    float qty_delta
+    float unit_cost_at_time
+    string note
+    datetime created_at
+  }
+
+  FORMULAS {
+    uuid id PK
+    uuid tenant_id FK
+    uuid location_id FK
+    uuid customer_id FK
+    uuid created_by_user_id FK
+    string formula_name
+    string service_type
+    string notes
+    datetime created_at
+  }
+
+  FORMULA_ITEMS {
+    uuid id PK
+    uuid formula_id FK
+    uuid tenant_product_id FK
+    float amount_used
+    float cost_at_time
+    datetime created_at
+  }
+```
+
+---
+
+# Why the System Uses a Tenant Product Catalog
+
+The system includes a **tenant-specific product catalog** using the `tenant_products` table.
+
+This design allows each salon to manage its own list of products while still using a shared global product database.
+
+In practice, different salons:
+
+- Use different brands and product lines
+- Purchase products from different distributors
+- Pay different prices for the same product
+- Sometimes rename or organize products differently inside their salon
+
+Because of this, the system separates the **global product catalog** from the **salon-specific catalog**.
+
+## System Structure
+
+```text
+Global Product Catalog
+Brands → Product Lines → Products
+            │
+            ▼
+Tenant Product Catalog
+Tenant Products
+            │
+            ▼
+Salon Operations
+Inventory / Formulas
+```
+
+### Explanation
+
+**Global Catalog**
+
+The global catalog stores product information shared across the platform:
+
+- `brands`
+- `product_lines`
+- `products`
+
+This includes manufacturer information such as product names, shade codes, and packaging sizes.
+
+**Tenant Catalog**
+
+Each salon has its own catalog layer using:
+
+- `tenant_products`
+
+This allows each salon to:
+
+- Enable only the products they use
+- Store their own cost information
+- Customize product naming if needed
+- Configure how inventory is tracked
+
+**Salon Operations**
+
+The operational parts of the system use the tenant-specific catalog:
+
+- `inventory_items`
+- `formulas`
+- `formula_items`
+
+These tables reference `tenant_products` so that inventory tracking and cost calculations reflect the **specific configuration of each salon**.
+
+This structure keeps the global product catalog clean while allowing every salon to manage its own product setup.
+
+---
+
+# Table Descriptions
+
+## 1) tenants
+
+**Purpose:** One paying salon business (SaaS customer).
+
+### Fields
+
+- `id` (UUID, PK)
+- `name` (VARCHAR(150))
+- `plan` (VARCHAR(50), NULL)
+- `status` (VARCHAR(30)) — active, trial, suspended
+- `created_at` (TIMESTAMP)
+
+### Relationships (why)
+
+- Owns locations, users, customers, tenant-specific catalog, inventory, formulas.
+- This table is the main boundary for multi-tenant data separation.
+
+---
+
+## 2) locations
+
+**Purpose:** Tenant can have multiple branches.
+
+### Fields
+
+- `id` (UUID, PK)
+- `tenant_id` (UUID, FK → tenants.id)
+- `name` (VARCHAR(150))
+- `address` (TEXT, NULL)
+- `timezone` (VARCHAR(50), NULL)
+- `created_at` (TIMESTAMP)
+
+### Relationships (why)
+
+- `tenants 1—* locations`
+- One salon business can operate from many physical branches.
+- Inventory, customers, and formulas are often tied to a location.
+
+---
+
+## 3) users
+
+**Purpose:** Staff login accounts.
+
+### Fields
+
+- `id` (UUID, PK)
+- `tenant_id` (UUID, FK → tenants.id)
+- `default_location_id` (UUID, FK → locations.id, NULL)
+- `full_name` (VARCHAR(150))
+- `email` (VARCHAR(255))
+- `password_hash` (TEXT)
+- `role` (VARCHAR(20)) — ADMIN | MANAGER | EMPLOYEE
+- `is_active` (BOOLEAN)
+- `last_login_at` (TIMESTAMP, NULL)
+- `created_at` (TIMESTAMP)
+
+### Relationships (why)
+
+- `tenants 1—* users`
+- `locations 1—* users` through `default_location_id` for default branch assignment
+- Users create formulas and perform inventory transactions.
+- This table is required for authentication, audit trail, and role-based permissions.
+
+---
+
+## 4) customers
+
+**Purpose:** Salon clients and their service history.
+
+### Fields
+
+- `id` (UUID, PK)
+- `tenant_id` (UUID, FK → tenants.id)
+- `home_location_id` (UUID, FK → locations.id)
+- `full_name` (VARCHAR(150))
+- `phone` (VARCHAR(30), NULL)
+- `email` (VARCHAR(255), NULL)
+- `notes` (TEXT, NULL)
+- `created_at` (TIMESTAMP)
+
+### Relationships (why)
+
+- `tenants 1—* customers`
+- `locations 1—* customers`
+- `customers 1—* formulas`
+- A customer belongs to a salon business and usually has a home branch.
+- Their formula history is linked through the `formulas` table.
+
+---
+
+# Product Catalog
+
+## 5) brands
+
+**Purpose:** Manufacturer of products such as Redken or Wella.
+
+### Fields
+
+- `id` (UUID, PK)
+- `name` (VARCHAR(150))
+- `website_url` (TEXT, NULL)
+- `created_at` (TIMESTAMP)
+
+### Relationships (why)
+
+- `brands 1—* product_lines`
+- A brand groups many product families under one manufacturer.
+
+---
+
+## 6) product_lines
+
+**Purpose:** Product family under a brand, such as Shades EQ.
+
+### Fields
+
+- `id` (UUID, PK)
+- `brand_id` (UUID, FK → brands.id)
+- `name` (VARCHAR(150))
+- `category` (VARCHAR(30)) — COLOR | DEVELOPER | TONER | TREATMENT
+- `created_at` (TIMESTAMP)
+
+### Relationships (why)
+
+- `brands 1—* product_lines`
+- `product_lines 1—* products`
+- This helps group products into meaningful families for filtering and administration.
+
+---
+
+## 7) products
+
+**Purpose:** Global product definitions shared across the platform.
+
+### Fields
+
+- `id` (UUID, PK)
+- `product_line_id` (UUID, FK → product_lines.id)
+- `sku` (VARCHAR(80), NULL)
+- `code` (VARCHAR(30)) — example: 09N
+- `name` (VARCHAR(150))
+- `tone_family` (VARCHAR(50), NULL) - optional (N, G, V, etc.)
+- `pack_size_value` (DECIMAL(10,2), NULL)
+- `pack_size_unit` (VARCHAR(10), NULL) — G | ML
+- `is_active` (BOOLEAN)
+- `created_at` (TIMESTAMP)
+
+### Relationships (why)
+
+- `product_lines 1—* products`
+- `products 1—* tenant_products`
+- This is the master catalog. It should not hold salon-specific pricing or usage rules.
+
+---
+
+# Tenant Product Catalog
+
+## 8) tenant_products
+
+**Purpose:** What a specific tenant actually carries and how that tenant tracks cost.
+
+### Fields
+
+- `id` (UUID, PK)
+- `tenant_id` (UUID, FK → tenants.id)
+- `product_id` (UUID, FK → products.id)
+- `custom_name` (VARCHAR(150), NULL)
+- `is_enabled` (BOOLEAN)
+- `tracking_unit` (VARCHAR(10)) — G | ML
+- `default_unit_cost` (DECIMAL(12,4), NULL)
+- `currency` (VARCHAR(10), NULL)
+- `created_at` (TIMESTAMP)
+
+### Relationships (why)
+
+- `tenants 1—* tenant_products`
+- `products 1—* tenant_products`
+- This table allows each salon to choose products, rename them if needed, and store its own cost rules.
+- It is the most important table for SaaS scalability.
+
+---
+
+# Inventory Management
+
+## 9) inventory_items
+
+**Purpose:** Current stock per location per tenant product.
+
+### Fields
+
+- `id` (UUID, PK)
+- `tenant_id` (UUID, FK → tenants.id)
+- `location_id` (UUID, FK → locations.id)
+- `tenant_product_id` (UUID, FK → tenant_products.id)
+- `on_hand_qty` (DECIMAL(12,2))
+- `reorder_level_qty` (DECIMAL(12,2), NULL)
+- `updated_at` (TIMESTAMP)
+- `created_at` (TIMESTAMP)
+
+### Relationships (why)
+
+- `locations 1—* inventory_items`
+- `tenant_products 1—* inventory_items`
+- Each branch can have different stock for the same product.
+- The quantity is stored in grams or milliliters for precise tracking.
+
+**Suggested constraint:**
+
+- Unique (`location_id`, `tenant_product_id`) so the same product is not duplicated in one location.
+
+---
+
+## 10) inventory_txns
+
+**Purpose:** Full audit log of every stock movement.
+
+### Fields
+
+- `id` (UUID, PK)
+- `tenant_id` (UUID, FK → tenants.id)
+- `inventory_item_id` (UUID, FK → inventory_items.id)
+- `formula_id` (UUID, FK → formulas.id, NULL)
+- `user_id` (UUID, FK → users.id)
+- `txn_type` (VARCHAR(20)) — PURCHASE | CONSUME | ADJUST | WASTE | RETURN
+- `qty_delta` (DECIMAL(12,2))
+- `unit_cost_at_time` (DECIMAL(12,4), NULL)
+- `note` (TEXT, NULL)
+- `created_at` (TIMESTAMP)
+
+### Relationships (why)
+
+- `inventory_items 1—* inventory_txns`
+- `users 1—* inventory_txns`
+- `formulas 1—* inventory_txns`
+- Every stock increase or decrease should be recorded here.
+- This table supports cost history, auditability, and reporting.
+
+---
+
+# Formula Tracking
+
+## 11) formulas
+
+**Purpose:** A saved color mix recipe for a customer visit.
+
+### Fields
+
+- `id` (UUID, PK)
+- `tenant_id` (UUID, FK → tenants.id)
+- `location_id` (UUID, FK → locations.id)
+- `customer_id` (UUID, FK → customers.id)
+- `created_by_user_id` (UUID, FK → users.id)
+- `formula_name` (VARCHAR(150), NULL)
+- `service_type` (VARCHAR(50), NULL)
+- `notes` (TEXT, NULL)
+- `created_at` (TIMESTAMP)
+
+### Relationships (why)
+
+- `customers 1—* formulas`
+- `users 1—* formulas`
+- `locations 1—* formulas`
+- A formula must belong to one customer, one branch, and one employee.
+- This table is the center of customer color history.
+
+---
+
+## 12) formula_items
+
+**Purpose:** Products used inside a formula and the amount used for each one.
+
+### Fields
+
+- `id` (UUID, PK)
+- `formula_id` (UUID, FK → formulas.id)
+- `tenant_product_id` (UUID, FK → tenant_products.id)
+- `amount_used` (DECIMAL(12,2))
+- `cost_at_time` (DECIMAL(12,4), NULL)
+- `created_at` (TIMESTAMP)
+
+### Relationships (why)
+
+- `formulas 1—* formula_items`
+- `tenant_products 1—* formula_items`
+- A single formula can contain many color products and developer products.
+- This table makes it possible to calculate total service cost and deduct inventory correctly.
+
+---
+
+# Relationship Summary
+
+- `tenants 1—* locations`
+- `tenants 1—* users`
+- `tenants 1—* customers`
+- `brands 1—* product_lines`
+- `product_lines 1—* products`
+- `tenants 1—* tenant_products`
+- `products 1—* tenant_products`
+- `locations 1—* inventory_items`
+- `tenant_products 1—* inventory_items`
+- `inventory_items 1—* inventory_txns`
+- `users 1—* inventory_txns`
+- `customers 1—* formulas`
+- `users 1—* formulas`
+- `locations 1—* formulas`
+- `formulas 1—* formula_items`
+- `tenant_products 1—* formula_items`
+- `formulas 1—* inventory_txns`
+
+---
+
+# Example Formula Record
+
+Example stored formula:
+
+```text
+Customer: Sarah
+Stylist: Mike
+
+20g 7N
+10g 7A
+30ml developer
+```
+
+The system:
+
+1. Saves the formula
+2. Creates formula items
+3. Creates inventory transactions
+4. Updates inventory levels
+5. Preserves customer history for the next visit
+
+---
+
+# End of Document
