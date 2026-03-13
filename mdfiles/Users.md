@@ -239,3 +239,6 @@ Delete a user (ADMIN only).
 - Password updates require providing the new password in the update request
 - Deactivated users (`is_active: false`) cannot login
 
+
+
+

@@ -30,7 +30,7 @@ router = APIRouter(prefix="/products", tags=["Products"])
 @router.get("/brands", response_model=PaginatedResponse[BrandRead])
 def list_brands(
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=20, ge=1),
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
@@ -76,7 +76,7 @@ def update_brand(
 def list_product_lines(
     brand_id: str,
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=20, ge=1),
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
@@ -124,7 +124,7 @@ def update_product_line(
 def list_products(
     product_line_id: str | None = None,
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=20, ge=1),
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
@@ -174,7 +174,7 @@ def update_product(
 def list_tenant_products(
     enabled_only: bool = False,
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=20, ge=1),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

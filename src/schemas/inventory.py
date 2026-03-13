@@ -63,3 +63,6 @@ class InventoryTxnRead(InventoryTxnBase):
     created_at: datetime
 
 
+
+
+

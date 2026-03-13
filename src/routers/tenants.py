@@ -29,7 +29,7 @@ router = APIRouter(prefix="/tenants", tags=["Tenants"])
 @router.get("/", response_model=PaginatedResponse[TenantRead])
 def list_tenants(
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=20, ge=1),
     db: Session = Depends(get_db),
     _: User = Depends(require_role("ADMIN")),
 ):
@@ -168,7 +168,7 @@ def delete_tenant(
 def list_locations(
     tenant_id: str,
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=20, ge=1),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

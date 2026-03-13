@@ -321,3 +321,6 @@ Create a manual inventory transaction (ADMIN/MANAGER only).
 - Low stock alerts are based on `on_hand_qty <= reorder_level_qty`
 - `qty_delta` is positive for stock increases, negative for decreases
 
+
+
+

@@ -358,3 +358,6 @@ Delete a location (ADMIN only).
 - `basic` - Basic plan
 - `premium` - Premium plan
 
+
+
+

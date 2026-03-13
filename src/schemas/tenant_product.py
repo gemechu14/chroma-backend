@@ -33,3 +33,6 @@ class TenantProductRead(TenantProductBase):
     created_at: datetime
 
 
+
+
+

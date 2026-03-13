@@ -227,3 +227,6 @@ GET /customers/?search=555-0101
 - Customers can have a home location, but formulas can be created at any location
 - Customer history (formulas) is preserved even if customer is deleted (formulas remain but customer_id becomes orphaned)
 
+
+
+

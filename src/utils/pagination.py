@@ -30,3 +30,6 @@ def paginate_query(page: int = Field(default=1, ge=1), page_size: int = Field(de
     return {"page": page, "page_size": page_size}
 
 
+
+
+

@@ -31,3 +31,6 @@ class CustomerRead(CustomerBase):
     created_at: datetime
 
 
+
+
+

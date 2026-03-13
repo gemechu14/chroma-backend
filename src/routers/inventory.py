@@ -94,7 +94,7 @@ def update_inventory_item(
 @router.get("/transactions", response_model=PaginatedResponse[InventoryTxnRead])
 def list_transactions(
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=20, ge=1),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -114,7 +114,7 @@ def list_transactions(
 def list_item_transactions(
     item_id: str,
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=20, ge=1),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
